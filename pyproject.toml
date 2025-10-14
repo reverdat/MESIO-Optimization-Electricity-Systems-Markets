@@ -1,0 +1,28 @@
+[project]
+name = "assigments"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "reverdat", email = "arnauperezre@gmail.com" }
+]
+dependencies = [
+    "ipykernel>=6.30.1",
+    "amplpy>=0.15.2",
+    "numpy>=2.3.3",
+]
+readme = "README.md"
+requires-python = ">= 3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/assigments"]

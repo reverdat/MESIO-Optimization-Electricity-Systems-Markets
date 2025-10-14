@@ -1,0 +1,37 @@
+reset;
+
+model economic_dispatch.mod;
+data economic_dispatch.dat;
+
+option solver cplex;
+
+solve;
+
+printf "\n========================================\n";
+printf "ECONOMIC DISPATCH SOLUTION\n";
+printf "========================================\n\n";
+
+printf "Objective Value (Total Cost): %.2f\n\n", Total_Cost;
+
+printf "%-8s %-12s %-12s %-12s %-12s %-12s\n", 
+       "Period", "Solar Used", "Charged", "Discharged", "Demand", "SOC";
+printf "%-8s %-12s %-12s %-12s %-12s %-12s\n", 
+       "", "[MWh]", "[MWh]", "[MWh]", "[MWh]", "[%]";
+printf "--------------------------------------------------------\n";
+
+for {t in T} {
+    printf "%-8d %-12.2f %-12.2f %-12.2f %-12.2f %-12.2f\n", 
+           t, s[t], x[t], y[t], D[t], 
+           ((SOC0 * E + sum{tp in T: tp <= t} (rho * x[tp] - (1/rho) * y[tp])) / E) * 100;
+}
+
+printf "\n========================================\n";
+printf "Energy Storage Statistics:\n";
+printf "========================================\n";
+printf "Initial SOC: %.2f%%\n", SOC0 * 100;
+printf "Final SOC: %.2f%%\n", SOCT * 100;
+printf "Total Energy Charged: %.2f MWh\n", sum{t in T} x[t];
+printf "Total Energy Discharged: %.2f MWh\n", sum{t in T} y[t];
+printf "Total Solar Generation: %.2f MWh\n", sum{t in T} S[t];
+printf "Total Demand Served: %.2f MWh\n", sum{t in T} D[t];
+printf "========================================\n\n";

@@ -1,0 +1,169 @@
+reset;
+
+model unit_commitment_reserve.mod;
+
+data unit_commitment_reserve.dat;
+
+option solver cplex;
+option cplex_options 'qpmethod=4';
+
+solve;
+
+display Total_Cost;
+
+printf "\n=== Generator Commitment Schedule ===\n";
+printf "Gen\\Period";
+for {t in T} printf "%8d", t;
+printf "\n";
+for {g in G} {
+    printf "%5d     ", g;
+    for {t in T} printf "%8d", u[g,t];
+    printf "\n";
+}
+
+printf "\n=== Scheduled Power Output (MW) ===\n";
+printf "Gen\\Period";
+for {t in T} printf "%10d", t;
+printf "\n";
+for {g in G} {
+    printf "%5d     ", g;
+    for {t in T} printf "%10.2f", p[g,t];
+    printf "\n";
+}
+
+printf "\n=== Upward Reserve Capacity (MW) ===\n";
+printf "Gen\\Period";
+for {t in T} printf "%10d", t;
+printf "\n";
+for {g in G} {
+    printf "%5d     ", g;
+    for {t in T} printf "%10.2f", w_ur[g,t];
+    printf "\n";
+}
+
+printf "\n=== Downward Reserve Capacity (MW) ===\n";
+printf "Gen\\Period";
+for {t in T} printf "%10d", t;
+printf "\n";
+for {g in G} {
+    printf "%5d     ", g;
+    for {t in T} printf "%10.2f", w_dr[g,t];
+    printf "\n";
+}
+
+printf "\n=== Operating Range with Reserves (MW) ===\n";
+printf "Gen  Period  Can_Go_Down_To   P_scheduled   Can_Go_Up_To  |  [P_min, P_max]\n";
+for {g in G} {
+    for {t in T: u[g,t] > 0.5} {
+        printf "%3d    %3d       %7.2f        %7.2f       %7.2f     | [%3.0f, %3.0f]\n",
+            g, t, 
+            p[g,t] - w_dr[g,t],  
+            p[g,t],               
+            p[g,t] + w_ur[g,t],  
+            P_min[g], P_max[g];
+    }
+}
+
+printf "\n=== Reserve Capability Check ===\n";
+printf "Gen  Period  P_sched  Headroom_Up  Headroom_Dn  w_ur_prov  w_dr_prov\n";
+for {g in G} {
+    for {t in T: u[g,t] > 0.5} {
+        printf "%3d    %3d    %7.2f     %7.2f      %7.2f     %7.2f     %7.2f\n",
+            g, t, p[g,t],
+            u[g,t]*P_max[g] - p[g,t], 
+            p[g,t] - u[g,t]*P_min[g], 
+            w_ur[g,t],                 
+            w_dr[g,t];                 
+    }
+}
+
+printf "\n=== Startup/Shutdown Costs ===\n";
+printf "Gen\\Period";
+for {t in T} printf "%10d", t;
+printf "\n";
+for {g in G} {
+    printf "%5d     ", g;
+    for {t in T} printf "%10.2f", v_SU[g,t];
+    printf "\n";
+}
+
+printf "\n=== Commitment Changes ===\n";
+printf "Gen  Period  Action      Cost\n";
+for {g in G} {
+    if u[g,1] > U_0[g] + 0.5 then
+        printf "%3d    %3d    Startup   %7.2f\n", g, 1, v_SU[g,1];
+    else if u[g,1] < U_0[g] - 0.5 then
+        printf "%3d    %3d    Shutdown  %7.2f\n", g, 1, v_SU[g,1];
+    
+    for {t in T: t > 1} {
+        if u[g,t] > u[g,t-1] + 0.5 then
+            printf "%3d    %3d    Startup   %7.2f\n", g, t, v_SU[g,t];
+        else if u[g,t] < u[g,t-1] - 0.5 then
+            printf "%3d    %3d    Shutdown  %7.2f\n", g, t, v_SU[g,t];
+    }
+}
+
+printf "\n=== Demand Balance Check ===\n";
+printf "Period  Demand  Total_Scheduled  Difference\n";
+for {t in T} {
+    printf "%4d    %6.2f      %9.2f       %10.6f\n", 
+        t, D[t], sum{g in G} p[g,t], (sum{g in G} p[g,t]) - D[t];
+}
+
+printf "\n=== Reserve Requirements Check ===\n";
+printf "Period  RU_Req  Total_UR  UR_OK  |  RD_Req  Total_DR  RD_OK\n";
+for {t in T} {
+    printf "%4d    %6.2f  %8.2f   ", 
+        t, RU[t], sum{g in G} w_ur[g,t];
+    
+    if sum{g in G} w_ur[g,t] >= RU[t] - 0.0001 then
+        printf "YES    | ";
+    else
+        printf "NO     | ";
+    
+    printf "%6.2f  %8.2f   ",
+        RD[t], sum{g in G} w_dr[g,t];
+    
+    if sum{g in G} w_dr[g,t] >= RD[t] - 0.0001 then
+        printf "YES\n";
+    else
+        printf "NO\n";
+}
+
+printf "\n=== Ramp Constraints Check ===\n";
+printf "Gen  Period  Power_Prev  Power_Curr  Ramp_Used  Ramp_Limit  OK\n";
+for {g in G} {
+    if abs(p[g,1] - P_0[g]) > 0.01 then {
+        printf "%3d    %3d    %10.2f  %10.2f  %9.2f  %10.2f  ", 
+            g, 1, P_0[g], p[g,1], p[g,1] - P_0[g], R[g];
+        if abs(p[g,1] - P_0[g]) <= R[g] + 0.0001 then
+            printf "YES\n";
+        else
+            printf "NO\n";
+    }
+    
+    for {t in T: t > 1} {
+        if abs(p[g,t] - p[g,t-1]) > 0.01 then {
+            printf "%3d    %3d    %10.2f  %10.2f  %9.2f  %10.2f  ", 
+                g, t, p[g,t-1], p[g,t], p[g,t] - p[g,t-1], R[g];
+            if abs(p[g,t] - p[g,t-1]) <= R[g] + 0.0001 then
+                printf "YES\n";
+            else
+                printf "NO\n";
+        }
+    }
+}
+
+printf "\n=== Cost Breakdown ===\n";
+printf "Component                        Cost\n";
+printf "----------------------------------------\n";
+printf "Quadratic Cost:   %10.2f\n", 
+    sum{t in T, g in G} C_q[g]*(p[g,t])^2;
+printf "Linear Cost:      %10.2f\n", 
+    sum{t in T, g in G} C_l[g]*(p[g,t]);
+printf "Fixed Cost:       %10.2f\n", 
+    sum{t in T, g in G} C_b[g]*u[g,t];
+printf "Startup/Shutdown Cost:       %10.2f\n", 
+    sum{t in T, g in G} v_SU[g,t];
+printf "----------------------------------------\n";
+printf "Total Cost:                  %10.2f\n", Total_Cost;

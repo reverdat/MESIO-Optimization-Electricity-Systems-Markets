@@ -1,0 +1,22 @@
+
+set T := 1 2 3 4;
+
+# Solar generation and demand data
+param: S  D :=
+  1    0   100
+  2  1000  300
+  3   500  400
+  4   100  100;
+
+# Energy Storage System parameters
+param E := 1000;     
+param Pmax := 500;   
+param rho := 0.80;   
+param SOC_min := 0.10; 
+param SOC_max := 0.90; 
+param SOC0 := 0.90;    
+param SOCT := 0.90;    
+
+# Cost parameters
+param C_s := 0.10;  
+param C_e := 0.01;  

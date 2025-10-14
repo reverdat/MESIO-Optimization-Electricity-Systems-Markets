@@ -1,0 +1,56 @@
+reset;
+
+model unit_commitment.mod;
+
+data unit_commitment.dat;
+
+option solver cplex;
+option cplex_options 'qpmethod=4';
+
+solve;
+
+display Total_Cost;
+
+printf "\n=== Generator Commitment Schedule ===\n";
+printf "Gen\\Period";
+for {t in T} printf "%8d", t;
+printf "\n";
+for {g in G} {
+    printf "%5d     ", g;
+    for {t in T} printf "%8d", u[g,t];
+    printf "\n";
+}
+
+printf "\n=== Power Output (MW) ===\n";
+printf "Gen\\Period";
+for {t in T} printf "%10d", t;
+printf "\n";
+for {g in G} {
+    printf "%5d     ", g;
+    for {t in T} printf "%10.2f", p[g,t];
+    printf "\n";
+}
+
+printf "\n=== Startup/Shutdown Costs ===\n";
+printf "Gen\\Period";
+for {t in T} printf "%10d", t;
+printf "\n";
+for {g in G} {
+    printf "%5d     ", g;
+    for {t in T} printf "%10.2f", v_SU[g,t];
+    printf "\n";
+}
+
+printf "\n=== Demand Check ===\n";
+printf "Period  Demand  Total_Gen  Difference\n";
+for {t in T} {
+    printf "%4d    %6.2f  %9.2f   %10.2f\n", 
+        t, D[t], sum{g in G} p[g,t], (sum{g in G} p[g,t]) - D[t];
+}
+
+printf "\n=== Cost Breakdown ===\n";
+printf "Total Production Cost: %.2f\n", 
+    sum{t in T, g in G} (C_q[g]*p[g,t]^2 + C_l[g]*p[g,t] + C_b[g]*u[g,t]);
+printf "Total Startup Cost: %.2f\n", 
+    sum{t in T, g in G} v_SU[g,t];
+printf "Total Cost: %.2f\n", Total_Cost;

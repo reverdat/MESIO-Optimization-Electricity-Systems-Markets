@@ -45,7 +45,7 @@ model.P_G = Var(model.G, model.B_G, domain=NonNegativeReals)
 model.P_D = Var(model.D, model.B_D, domain=NonNegativeReals)
 #model.u = Var(model.G, domain=Binary)
 
-# Objective function - Social Welfare
+# Objective function - Maximize Social Welfare
 def Social_Welfare_Rule(model):
     term1 = sum(
         model.Lambda_B_D[d, k] * model.P_D[d, k] 

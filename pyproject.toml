@@ -11,6 +11,7 @@ dependencies = [
     "numpy>=2.3.3",
     "pyomo>=6.9.4",
     "highspy>=1.11.0",
+    "matplotlib>=3.10.7",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"

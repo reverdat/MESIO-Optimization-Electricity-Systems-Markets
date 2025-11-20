@@ -1,0 +1,25 @@
+#######################################################
+# Two-stage (ED) problem with stochastic demand (SDED)
+# .dat file.
+# (c) F.-Javier Heredia, http://gnom.upc.edu/heredia
+# Code under Creative Commons License CC BY-NC-ND 3.0
+# http://creativecommons.org/licenses/by-nc-nd/3.0/
+#######################################################
+
+set    G:= 1 2 3; # Generation units   
+   
+param :   cq     cl      cb     pgmin   pgmax :=
+   1  0.0006 0.5  6   100   250
+   2  0.0005 0.6  5   100   250
+   3  0.0007 0.4  3   100   350
+;
+
+# cq: Quadratic cost coeficients (BTu/hMW2)
+# cl: Linear cost coeficients (BTu/MWh)
+# cb: Constant cost coeficients (BTu/h)
+# pg_min: Minimum power output (MW)
+# pg_max: Minimum power output (MW)
+
+# param  pd0:= 800;        # Total system load (MW)
+# param la_c:= 1.5;      # Curtailment penalization (EUR/MW)
+# param la_s:= 1.0;      # Surplus penalization (EUR/MW)

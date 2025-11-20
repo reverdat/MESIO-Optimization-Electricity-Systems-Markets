@@ -1,0 +1,85 @@
+# ====================================================
+# Script to execute the power flow model
+# ====================================================
+
+#Load model and data
+reset;
+model 1a.mod;
+data 1a.dat;
+
+
+option solver cplex;
+option show_stats 1;
+
+
+printf "\n";
+printf "=======================================\n";
+printf "EXERCISE 1: DC-OPF WITH UNIT COMMITMENT\n";
+printf "=======================================\n";
+printf "\n";
+
+
+solve;
+
+printf "\n=========== GENERAL RESULTS ===========\n";
+
+
+# Potencias generadas
+printf "\n>> Generated power (MW):\n";
+printf "Generator  Time  Power\n";
+for {g in G, t in T: p[g,t] > 0.0001} {
+    printf "%-10s %-6s %10.3f\n", g, t, p[g,t];
+}
+
+# Total power per node
+printf "\n>> Total generated power per node and time:\n";
+printf "Node  Time  Total_Power\n";
+for {n in V, t in T} {
+    printf "%-5s %-6s %10.3f\n", n, t, sum {g in G_n[n]} p[g,t];
+}
+
+# Flujos en líneas
+printf "\n>> Power flows in lines:\n";
+printf "Line(Term1,Term2)  Time  Flow\n";
+for {(i,j) in L, t in T} {
+    printf "(%2d,%2d)  %-6s %10.3f\n", i, j, t, f[i,j,t];
+}
+
+
+printf "\n=========== ADDITIONAL OUTPUTS ===========\n";
+
+# (i) Objective function value
+printf "\n(i) Objective function value:\n";
+printf "Total cost = %10.3f\n", TotalCost;
+
+# (ii) Generation and on/off status of NRC3 for all time periods
+printf "\n(ii) Generation and on/off status of NRC3:\n";
+printf "Time   Generation(MW)   On/Off\n";
+for {t in T} {
+    printf "%-5s %14.3f %8d\n", t, p["NRC3",t], u["NRC3",t];
+}
+
+# (iii) Generation, load, and flows at t = 10
+printf "\n(iii) Generation, loads, and flows at t = 10:\n";
+
+printf "\n-- Generation (t=10):\n";
+printf "Generator   Power(MW)\n";
+for {g in G} {
+    printf "%-10s %10.3f\n", g, p[g,10];
+}
+
+printf "\n-- Load (t=10):\n";
+printf "Demand   Power(MW)\n";
+for {d in D} {
+    printf "%-10s %10.3f\n", d, Pd[d,10];
+}
+
+printf "\n-- Line flows (t=10):\n";
+printf "(i,j)   Flow(MW)\n";
+for {(i,j) in L} {
+    printf "(%2d,%2d) %10.3f\n", i, j, f[i,j,10];
+}
+
+###############################
+
+printf "\n Execution completed successfully. \n";

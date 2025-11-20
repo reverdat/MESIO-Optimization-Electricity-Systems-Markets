@@ -1,0 +1,159 @@
+# ex2.run - Run file for DC-OPF with Generalized Unit Commitment
+reset;
+model ex2.mod;
+data ass1_students.dat;
+
+
+printf "\n";
+printf "===================================================\n";
+printf "EXERCISE 2: DC-OPF WITH GENERALIZED UNIT COMMITMENT\n";
+printf "===================================================\n";
+printf "Minimum Uptime (TU): 4 hours\n";
+printf "Minimum Downtime (TD): 5 hours\n";
+printf "\n";
+
+printf "Initial Conditions from data file:\n";
+for {g in G} {
+    printf "  %-6s: U0=%d, Pg0=%6.2f MW, TUini=%d, TDini=%d\n", 
+           g, U0[g], Pg0[g], TUini[g], TDini[g];
+}
+printf "\n";
+
+printf "===================================================\n";
+printf "CASE (a): WITHOUT Initial TU/TD Constraints (t = 0)\n";
+printf "===================================================\n";
+printf "Problem: DC_OPF_GUC_No_Initial\n";
+printf "Includes: MinUptime, MinUptimeInit, MinDowntime, MinDowntimeInit\n\n";
+printf "Excludes: InitialUptime, InitialDowntime constraints\n\n";
+
+problem DC_OPF_GUC_No_Initial;
+
+option solver cplex;
+option cplex_options 'mipgap=0.001 timelimit=600';
+solve;
+
+printf "\n--- RESULTS for CASE (a) ---\n";
+printf "Solver Status: %s\n", solve_result;
+
+if solve_result = "solved" then {
+    printf "Objective Value (Total Cost): $%.2f\n\n", TotalCost;
+    
+    printf "Generator Unit Commitment Schedule (0=OFF, 1=ON):\n";
+    printf "%-6s", "Gen";
+    for {t in T} printf " %2d", t;
+    printf "\n";
+    printf "%-6s", "------";
+    for {t in T} printf " --";
+    printf "\n";
+    
+    for {g in G} {
+        printf "%-6s", g;
+        for {t in T} printf " %2d", u[g,t];
+        printf "\n";
+    }
+    
+    printf "\nGenerator Power Output (MW):\n";
+    printf "%-6s", "Gen";
+    for {t in 1..12} printf " %6d", t;
+    printf "\n";
+    printf "%-6s", "------";
+    for {t in 1..12} printf " ------";
+    printf "\n";
+    
+    for {g in G} {
+        printf "%-6s", g;
+        for {t in 1..12} printf " %6.1f", p[g,t];
+        printf "\n";
+    }
+    
+    printf "\n%-6s", "Gen";
+    for {t in 13..24} printf " %6d", t;
+    printf "\n";
+    printf "%-6s", "------";
+    for {t in 13..24} printf " ------";
+    printf "\n";
+    
+    for {g in G} {
+        printf "%-6s", g;
+        for {t in 13..24} printf " %6.1f", p[g,t];
+        printf "\n";
+    }
+    
+    printf "\nCost Breakdown:\n";
+    printf "  Generation Cost: $%12.2f\n", 
+           sum{t in T, g in G} (Cq[g]*p[g,t]^2 + Cl[g]*p[g,t]);
+    printf "  Fixed Cost:      $%12.2f\n", 
+           sum{t in T, g in G} Cb[g]*u[g,t];
+    printf "  SU/SD Cost:      $%12.2f\n", 
+           sum{t in T, g in G} vsu[g,t];
+    printf "  Total Cost:      $%12.2f\n", TotalCost;
+}
+else {
+    printf "Problem is INFEASIBLE or could not be solved\n";
+} 
+
+printf "\n\n";
+printf "======================================================================================\n";
+printf "CASE (b): WITH Initial TU/TD Constraints (t = 0) AND WITHOUT General TU/TD Contraints \n";
+printf "======================================================================================\n";
+printf "Problem: DC_OPF_GUC_Initial_Only\n";
+printf "Includes: InitialUptime, InitialDowntime constraints\n";
+printf "Excludes: MinUptime, MinUptimeInit, MinDowntime, MinDowntimeInit\n\n";
+
+printf "Initial conditions from data file:\n";
+for {g in G} {
+    printf "  %-6s: U0=%d, Pg0=%6.2f MW, TUini=%d, TDini=%d\n", 
+           g, U0[g], Pg0[g], TUini[g], TDini[g];
+}
+
+printf "\nConstraints imposed by initial conditions:\n";
+for {g in G: TUini[g] > 0} {
+    printf "  %-6s must be ON for periods 1 to %d\n", g, TUini[g];
+}
+for {g in G: TDini[g] > 0} {
+    printf "  %-6s must be OFF for periods 1 to %d\n", g, TDini[g];
+}
+if sum{g in G} (TUini[g] + TDini[g]) = 0 then {
+    printf "  (No initial uptime/downtime constraints active)\n";
+}
+printf "\n";
+
+problem DC_OPF_GUC_Initial_Only;
+option solver cplex;
+option cplex_options 'mipgap=0.001 timelimit=600';
+solve;
+
+printf "\n--- RESULTS for CASE (b) ---\n";
+printf "Solver Status: %s\n", solve_result;
+
+if solve_result = "solved" then {
+    printf "Objective Value (Total Cost): $%.2f\n\n", TotalCost;
+    
+    printf "Generator Unit Commitment Schedule (0=OFF, 1=ON):\n";
+    printf "%-6s", "Gen";
+    for {t in T} printf " %2d", t;
+    printf "\n";
+    printf "%-6s", "------";
+    for {t in T} printf " --";
+    printf "\n";
+    
+    for {g in G} {
+        printf "%-6s", g;
+        for {t in T} printf " %2d", u[g,t];
+        printf "\n";
+    }
+    
+    printf "\nCost Breakdown:\n";
+    printf "  Generation Cost: $%12.2f\n", 
+           sum{t in T, g in G} (Cq[g]*p[g,t]^2 + Cl[g]*p[g,t]);
+    printf "  Fixed Cost:      $%12.2f\n", 
+           sum{t in T, g in G} Cb[g]*u[g,t];
+    printf "  SU/SD Cost:      $%12.2f\n", 
+           sum{t in T, g in G} vsu[g,t];
+    printf "  Total Cost:      $%12.2f\n", TotalCost;
+}
+else {
+    printf "Problem is INFEASIBLE\n\n";
+    printf "This shows that the initial uptime/downtime constraints\n";
+    printf "make the problem infeasible.\n";
+}

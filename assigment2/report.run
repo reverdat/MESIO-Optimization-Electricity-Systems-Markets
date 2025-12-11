@@ -1,0 +1,209 @@
+reset;
+model model_mic.mod;
+data data/ass2_tcmpa_IEEE14_uc.dat;
+
+for {n in V} {
+   for {g in GB[n]} {
+      let Gen_Bus[g] := n;
+   }
+}
+
+param EPSILON := 0.001;     
+param MAX_ITER := 20;       
+param mic_violation_count;
+param rev_g;
+param cost_g;
+
+# Reporting Parameters
+param gen_cost {G};
+param gen_rev {G};
+param gen_profit {G};
+param gen_energy {G};
+param avg_price;
+
+for {g in G} {
+    read {t in T}: {b in bG} lbG[g,b,t] < ("data/" & g & "_lbG.dat");
+    read {t in T}: {b in bG} pbG[g,b,t] < ("data/" & g & "_pbG.dat");
+}
+for {d in D} {
+    read {t in T}: {b in bD} lbD[d,b,t] < ("data/" & d & "_lbD.dat");
+    read {t in T}: {b in bD} pbD[d,b,t] < ("data/" & d & "_pbD.dat");
+}
+
+printf "\n######################################";
+printf "\n### STARTING MPA ###";
+printf "\n######################################\n";
+
+let G_eligible := G; 
+
+problem MPA_Heuristic;
+option solver cplex;
+
+for {iter in 1..MAX_ITER} {
+    printf "\n--- ITERATION %d (MPA) ---\n", iter;
+    
+    solve; 
+
+    fix {g in G, t in T} U[g,t]; 
+
+    solve; 
+
+    # --- Financial Calculations ---
+    let avg_price := (sum {t in T} abs(System_Balance[t].dual)) / nT;
+    for {g in G} {
+        let gen_cost[g]   := sum {t in T, b in bG} (lbG[g,b,t] * P_G[g,b,t]);
+        let gen_rev[g]    := sum {t in T} (abs(System_Balance[t].dual) * pg_total[g,t]);
+        let gen_profit[g] := gen_rev[g] - gen_cost[g];
+        let gen_energy[g] := sum {t in T} pg_total[g,t];
+    }
+
+    # --- Case Study 1 Baseline Report ---
+    if iter == 1 then {
+        printf "\n>>> [CASE STUDY 1] MPA BASELINE (No MIC Enforcement) <<<\n";
+        printf "----------------------------------------------------------------------\n";
+        printf "%-10s %-10s %-12s %-12s %-12s\n", "Gen", "Energy", "Cost", "Revenue", "Profit";
+        printf "----------------------------------------------------------------------\n";
+        for {g in G} {
+             printf "%-10s %-10.1f %-12.1f %-12.1f %-12.1f", 
+                    g, gen_energy[g], gen_cost[g], gen_rev[g], gen_profit[g];
+             if gen_profit[g] < -EPSILON then printf " [LOSS]";
+             printf "\n";
+        }
+        printf "----------------------------------------------------------------------\n";
+        printf "Total Welfare: %.2f | Avg Price: %.2f\n", Social_Welfare, avg_price;
+    }
+
+    let mic_violation_count := 0;
+    
+    printf "\n---> Checking MIC Violations:\n";
+    for {g in G_eligible} { 
+        if gen_cost[g] > gen_rev[g] + EPSILON then {
+            printf "  + [VIOLATION] Gen %s -> Loss: %.2f (Cost: %.2f > Rev: %.2f)\n", 
+                   g, (gen_cost[g] - gen_rev[g]), gen_cost[g], gen_rev[g];
+            
+            let mic_violation_count := mic_violation_count + 1;
+            let G_eligible := G_eligible diff {g};
+        }
+    }
+
+    unfix {g in G, t in T} U[g,t];
+
+    if mic_violation_count == 0 then {
+        printf "\n>>> CONVERGENCE MPA in ITERATION %d <<<\n", iter;
+        
+        # --- Final Report ---
+        printf "----------------------------------------------------------------------\n";
+        printf "%-10s %-10s %-12s %-12s %-12s\n", "Gen", "Energy", "Cost", "Revenue", "Profit";
+        printf "----------------------------------------------------------------------\n";
+        for {g in G} {
+             printf "%-10s %-10.1f %-12.1f %-12.1f %-12.1f", 
+                    g, gen_energy[g], gen_cost[g], gen_rev[g], gen_profit[g];
+             if g not in G_eligible then printf " [CUT]";
+             printf "\n";
+        }
+        printf "----------------------------------------------------------------------\n";
+        printf "Total Welfare: %.2f | Avg Price: %.2f\n", Social_Welfare, avg_price;
+        break;
+    }
+}
+
+printf "\n\n>>> MPA HOURLY SCHEDULE (MW) & PRICES <<<\n";
+printf "%-6s", "Hour";
+for {g in G} printf "%10s", g;
+printf "%12s", "PRICE";
+printf "\n";
+for {t in T} {
+    printf "%-6d", t;
+    for {g in G} printf "%10.2f", pg_total[g,t];
+    printf "%12.2f", abs(System_Balance[t].dual); 
+    printf "\n";
+}
+
+################################################################################
+
+printf "\n\n########################################";
+printf "\n### STARTING TCMPA ###";
+printf "\n########################################\n";
+
+let G_eligible := G; 
+
+problem TCMPA_Heuristic;
+option solver cplex;
+
+for {iter in 1..MAX_ITER} {
+    printf "\n--- ITERATION %d (TCMPA) ---\n", iter;
+    
+    option relax_integrality 0;
+    solve; 
+
+    fix {g in G, t in T} U[g,t];
+
+    solve; 
+
+    # --- Financial Calculations ---
+    for {g in G} {
+        let gen_cost[g]   := sum {t in T, b in bG} (lbG[g,b,t] * P_G[g,b,t]);
+        let gen_rev[g]    := sum {t in T} (abs(Node_Balance[Gen_Bus[g], t].dual) * pg_total[g,t]);
+        let gen_profit[g] := gen_rev[g] - gen_cost[g];
+        let gen_energy[g] := sum {t in T} pg_total[g,t];
+    }
+
+    # --- Case Study 2 Baseline Report ---
+    if iter == 1 then {
+        printf "\n>>> [CASE STUDY 2] TCMPA BASELINE (No MIC Enforcement) <<<\n";
+        printf "----------------------------------------------------------------------------\n";
+        printf "%-10s %-6s %-10s %-12s %-12s %-12s\n", "Gen", "Bus", "Energy", "Cost", "Revenue", "Profit";
+        printf "----------------------------------------------------------------------------\n";
+        for {g in G} {
+             printf "%-10s %-6s %-10.1f %-12.1f %-12.1f %-12.1f", 
+                    g, Gen_Bus[g], gen_energy[g], gen_cost[g], gen_rev[g], gen_profit[g];
+             if gen_profit[g] < -EPSILON then printf " [LOSS]";
+             printf "\n";
+        }
+        printf "----------------------------------------------------------------------------\n";
+        printf "Total Welfare: %.2f\n", Social_Welfare;
+    }
+
+    let mic_violation_count := 0;
+    
+    printf "\n---> Checking MIC Violations:\n";
+    for {g in G_eligible} {
+        if gen_cost[g] > gen_rev[g] + EPSILON then {
+            printf "  + [VIOLATION] Gen %s (Bus %s) -> Loss: %.2f (Cost: %.2f > Rev: %.2f)\n", 
+                   g, Gen_Bus[g], (gen_cost[g] - gen_rev[g]), gen_cost[g], gen_rev[g];
+            
+            let mic_violation_count := mic_violation_count + 1;
+            let G_eligible := G_eligible diff {g};
+        }
+    }
+
+    unfix {g in G, t in T} U[g,t];
+
+    if mic_violation_count == 0 then {
+        printf "\n>>> CONVERGENCE TCMPA in ITERATION %d <<<\n", iter;
+        
+        # --- Final Report ---
+        printf "----------------------------------------------------------------------------\n";
+        printf "%-10s %-6s %-10s %-12s %-12s %-12s\n", "Gen", "Bus", "Energy", "Cost", "Revenue", "Profit";
+        printf "----------------------------------------------------------------------------\n";
+        for {g in G} {
+             printf "%-10s %-6s %-10.1f %-12.1f %-12.1f %-12.1f", 
+                    g, Gen_Bus[g], gen_energy[g], gen_cost[g], gen_rev[g], gen_profit[g];
+             if g not in G_eligible then printf " [CUT]";
+             printf "\n";
+        }
+        printf "----------------------------------------------------------------------------\n";
+        printf "Total Welfare: %.2f\n", Social_Welfare;
+        break;
+    }
+}
+
+printf "\n\n>>> TCMPA HOURLY SCHEDULE (MW) <<<\n";
+printf "%-6s", "Hour";
+for {g in G} printf "%10s", g;
+printf "\n";
+for {t in T} {
+    printf "%-6d", t;
+    for {g in G} printf "%10.2f", pg_total[g,t];
+    printf "\n";
+}

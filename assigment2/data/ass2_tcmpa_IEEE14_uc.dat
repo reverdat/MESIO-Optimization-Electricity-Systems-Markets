@@ -1,0 +1,68 @@
+# f.javier.heredia(at)upc.edu
+# albert.sola.vilalta(at)upc.edu
+
+set G := ALL1 ROB1 ROB2 NRC1 NRC2 NRC3 SBO1 SBO2;
+set D := D03 D04 D05 D08 D09 D10 D11 D12 D13 D14;
+
+param nbG := 10;
+param nbD := 10;
+param nT := 24;
+param nB := 14;
+
+param M := 100000;
+
+# IEE14 grid
+set GB[1] := ROB1 ROB2;
+set GB[2] := NRC1 NRC2 NRC3;
+set GB[3] := SBO1 SBO2;
+set GB[6] := ALL1;
+
+set DB[3 ]:= D03;
+set DB[4 ]:= D04;
+set DB[5 ]:= D05;
+set DB[8 ]:= D08;
+set DB[9 ]:= D09;
+set DB[10]:= D10;
+set DB[11]:= D11;
+set DB[12]:= D12;
+set DB[13]:= D13;
+set DB[14]:= D14;
+
+set  refB := 1;
+
+param: Bsusc        smax:=
+1   2  1690.0       17
+1   5  448.4        51
+2   3  505.1        56
+2   4  567.2        67
+2   5  575.1        60
+3   4  584.7        65
+4   5  2374.7       37
+4   7  478.2        88
+4   9  179.8        49
+5   6  396.8        84
+6  11  502.8        70
+6  12  390.9        4
+6  13  767.6        11
+7   8  567.7        8
+7   9  909.0        80
+9  10  1183.4       75
+9  14  369.8        9
+10 11  520.6        3
+12 13  500.3        3
+13 14  287.3        10
+;
+
+# Generation units
+param :   pgmin   pgmax   ru      rd      pg0     u0:=
+ALL1      150.00  350.00  150.00  150.00  150.00  1
+NRC1      60.00   166.40  70.00   60.00   60.00   1
+NRC2      160.00  364.10  160.00  160.00  160.00  1
+NRC3      90.00   350.00  90.00   90.00   90.00   1
+ROB1      160.00  370.70  160.00  160.00  160.00  1
+ROB2      30.00   70.00   40.00   30.00   30.00   1
+SBO1      110.00  313.60  115.00  110.00  110.00  1
+SBO2      110.00  313.60  110.00  110.00  110.00  1
+;
+
+
